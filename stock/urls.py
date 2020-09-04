@@ -1,4 +1,4 @@
-"""Django_Stock URL Configuration
+"""django_stock URL Configuration
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/3.0/topics/http/urls/
@@ -14,12 +14,11 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
-
-from django.conf.urls import url, include
+from django.urls import path, re_path
+from stock import views
+from django.conf.urls import url
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    url('test/', include('TestModel.urls')),
-    url('stock/', include('stock.urls')),
+    path('api', views.api),
+    url(r'api/v1/update/', views.v1_update),    # stock数据更新：/stock/api/v1/update/?vt_symbol=000001.SZ&interval=D
 ]
