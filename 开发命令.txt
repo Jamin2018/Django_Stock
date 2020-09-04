@@ -1,0 +1,19 @@
+创建app：django-admin startapp TestModel
+数据迁移：python manage.py makemigrations TestModel
+数据更新：python manage.py migrate TestModel
+
+
+GIT忽略某些文件提交：
+ps:
+
+  *.pyc ：忽略所有 .pyc 结尾的文件
+  !index.pyc：但index.pyc除外
+  /target/ ：过滤这个文件夹
+
+pycharm 文件名颜色所代表的含义
+
+    绿色，已经加入版本控制暂未提交；
+    红色，未加入版本控制；
+    蓝色，加入版本控制，已提交，有改动；
+    白色，加入版本控制，已提交，无改动；
+    灰色：版本控制已忽略文件。
