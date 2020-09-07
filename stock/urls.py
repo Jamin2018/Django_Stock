@@ -18,5 +18,7 @@ from django.urls import path
 from stock import views
 
 urlpatterns = [
+    path(r'kline', views.kline),
+    path(r'api/v1/get_kline_chart', views.v1_get_kline_chart),
     path(r'api/v1/update/', views.v1_update),    # stock数据更新：/stock/api/v1/update/?vt_symbol=000001.SZ&interval=D
 ]

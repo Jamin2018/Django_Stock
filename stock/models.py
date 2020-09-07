@@ -8,7 +8,7 @@ class StockData(models.Model):
     id = models.AutoField(primary_key=True)  # ID
     symbol = models.CharField(max_length=20)  # 代码
     exchange = models.CharField(max_length=2)  # 交易所
-    production_data = models.DateTimeField()  # 时间
+    datetime = models.DateTimeField()  # 时间
     interval = models.CharField(max_length=20)  # 级别
     volume = models.FloatField()  # 成交量
     open_interest = models.FloatField()  # 期货的空盘量
