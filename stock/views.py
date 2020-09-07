@@ -4,9 +4,12 @@ import json
 import os
 from .stock_code.core.StockApi import StockApi
 from stock.models import StockData
-import numpy as np
 import pandas as pd
+from django.db import connection
+import traceback  # 定位异常
+
 # Create your views here.
+
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 config_path = curPath
@@ -14,66 +17,66 @@ config_path = curPath
 with open(config_path + '/stock_code/config.json', 'r', encoding='utf8')as fp:
     conf = json.load(fp)
 
-def api(request):
-    result = {
-        "status": 200
-    }
-    data = json.dumps(result, ensure_ascii=False)
-    return HttpResponse(data, content_type="application/json,charset=utf-8")
-
 
 def v1_update(request):
-    '''根据'''
+    '''增量更新'''
     vt_symbol = request.GET.get('vt_symbol')
     interval = request.GET.get('interval')
+    status = "error"
     msg = ""
-    status = ""
-    if vt_symbol and interval:
-        df_stock_code = [vt_symbol]
-        SA = StockApi(conf)
-        df = SA.update_stock_csv(df_stock_code, ktype=interval)
-        df = df.sort_index()  # 要正序添加到数据库
-        df = df.dropna(axis=0, how='any', subset=["open"])
-        df = df[:10]
-
-        # FIXME index 转成UTC时间格式
-        # https://www.cnblogs.com/Cheryol/p/13479418.html
-        # print(df.index)
-        # print(pd.DataFrame(df.index))
-        # dt = dt.datetime.astimezone("UTC")
-        # dt = dt.replace(tzinfo=None)
-        # dt = dt.strftime('%Y-%m-%d %H:%M:%S')
-        # print(dt)
-        symbol, exchange = vt_symbol.split('.')
-
-        for production_data, row in df.iterrows():
-            sd = StockData()
-            if interval == 'D':
-                production_data = production_data + " 00:00:00"
-            sd.production_data = production_data
-            sd.symbol = symbol
-            sd.exchange = exchange
-            sd.interval = interval
-            sd.volume = row['volume']
-            sd.open_interest = 0
-            sd.open_price = row['open']
-            sd.high_price = row['high']
-            sd.low_price = row['low']
-            sd.close_price = row['close']
-            # sd.save()
-
-        if df is not None:
-            status = 200
-        else:
-            status = 'error'
-            msg = "ts接口没获取到：" + vt_symbol
-    else:
-        status = 'error'
     result = {
         "status": status,
         "vt_symbol": vt_symbol,
         "interval": interval,
-        "msg": msg
+        "msg": msg,
     }
+
+    if vt_symbol and interval:
+        df_stock_code = [vt_symbol]
+        symbol, exchange = vt_symbol.split('.')
+
+        try:
+            SA = StockApi(conf)
+            df = SA.update_stock_csv(df_stock_code, ktype=interval)
+            df = df.sort_index()  # 要正序添加到数据库
+            df = df.dropna(axis=0, how='any', subset=["open"])  # 去掉空数据
+            # 2000-01-01 变成utc:2020-01-01 00:00:00+00:00
+            df['production_data'] = pd.to_datetime(df.index, utc=True, format="%Y-%m-%d")
+            df['exchange'] = exchange
+            df['interval'] = interval
+            df['open_interest'] = 0
+            df.rename(columns={
+                'code': 'symbol',
+                'open': 'open_price',
+                'high': 'high_price',
+                'low': 'low_price',
+                'close': 'close_price',
+            }, inplace=True)
+            df = df[['symbol', 'exchange', 'production_data', 'interval', 'volume',
+                     'open_interest', 'open_price', 'high_price', 'low_price', 'close_price']]
+
+            # 建立数据库连接
+            connection.connect()
+            conn = connection.connection
+            # import sqlite3
+            # 连接到SQlite数据库
+            # conn = sqlite3.connect('db.sqlite3')
+            # 从数据库获取对应的数据用于对比
+            old_stock_data = StockData.objects.filter(symbol=symbol, exchange=exchange, interval=interval)
+            d = pd.DataFrame(old_stock_data.values())
+            if len(d):
+                diff_df = df[~df['production_data'].isin(d['production_data'])]  # 查出数据库中没有的时间
+            else:
+                diff_df = df   # 若数据库没数据，则diff_df的不同数据为所有df数据
+            # 存入数据库
+            diff_df.to_sql(StockData._meta.db_table, conn, if_exists='append', index=False)
+            status = 200
+            msg = f'新增{len(diff_df)}条数据'
+        except Exception as e:
+            status = 'error'
+            msg = f"{traceback.format_exc()}"
+    result['status'] = status
+    result['msg'] = msg
+
     data = json.dumps(result, ensure_ascii=False)
     return HttpResponse(data, content_type="application/json,charset=utf-8")

@@ -14,11 +14,9 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, re_path
+from django.urls import path
 from stock import views
-from django.conf.urls import url
 
 urlpatterns = [
-    path('api', views.api),
-    url(r'api/v1/update/', views.v1_update),    # stock数据更新：/stock/api/v1/update/?vt_symbol=000001.SZ&interval=D
+    path(r'api/v1/update/', views.v1_update),    # stock数据更新：/stock/api/v1/update/?vt_symbol=000001.SZ&interval=D
 ]
