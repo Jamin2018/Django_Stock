@@ -8,8 +8,11 @@ class StockEigenvalueExtraction(object):
     特征值处理
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, config_dict):
+        self.config = config_dict
+        self.options = config_dict['options']
+        self.data_dir = config_dict['options']['data_dir']
+        self.stock_csv_columns_dict = config_dict['options']['stock_csv_columns_dict']
 
     def kdj(self, df, fastk_period=9, slowk_period=3, slowd_period=3):
         """
@@ -36,11 +39,11 @@ class StockEigenvalueExtraction(object):
         :return:
         """
         # 计算kd指标
-        low_list = df['low'].rolling(9, min_periods=9).min()
-        low_list.fillna(value=df['low'].expanding().min(), inplace=True)
-        high_list = df['high'].rolling(9, min_periods=9).max()
-        high_list.fillna(value=df['high'].expanding().max(), inplace=True)
-        rsv = (df['close'] - low_list) / (high_list - low_list) * 100
+        low_list = df[self.stock_csv_columns_dict['最低价']].rolling(9, min_periods=9).min()
+        low_list.fillna(value=df[self.stock_csv_columns_dict['最低价']].expanding().min(), inplace=True)
+        high_list = df[self.stock_csv_columns_dict['最高价']].rolling(9, min_periods=9).max()
+        high_list.fillna(value=df[self.stock_csv_columns_dict['最高价']].expanding().max(), inplace=True)
+        rsv = (df[self.stock_csv_columns_dict['收盘价']] - low_list) / (high_list - low_list) * 100
 
         df['kdj_k'] = pd.DataFrame(rsv).ewm(com=2).mean()
         df['kdj_d'] = df['kdj_k'].ewm(com=2).mean()
@@ -182,12 +185,12 @@ class StockEigenvalueExtraction(object):
 
     def ma(self, df, timeperiod):
         f = 'ma' + str(timeperiod)
-        df[f] = ta.MA(df['close'], timeperiod=timeperiod)
+        df[f] = ta.MA(df[self.stock_csv_columns_dict['收盘价']], timeperiod=timeperiod)
         return df
 
     def vma(self, df, timeperiod):
         f = 'v_ma' + str(timeperiod)
-        df[f] = ta.MA(df['volume'], timeperiod=timeperiod)
+        df[f] = ta.MA(df[self.stock_csv_columns_dict['成交量']], timeperiod=timeperiod)
         return df
 
     def macd(self, df, fast=12, slow=26, signal=9):
@@ -195,7 +198,7 @@ class StockEigenvalueExtraction(object):
         hd_df['DIFF'],hd_df['DEA'],hd_df['MACD'] = ta.MACD(hd_df['close'],fastperiod=fast, slowperiod=slow, signalperiod=signal)
         一般教程都是 macd(DIFF), signal(DEA), hist(MACD柱)
         """
-        DIFF, DEA, macd = ta.MACD(df['close'], fastperiod=fast, slowperiod=slow, signalperiod=signal)
+        DIFF, DEA, macd = ta.MACD(df[self.stock_csv_columns_dict['收盘价']], fastperiod=fast, slowperiod=slow, signalperiod=signal)
         df['macd'] = macd * 2
         df['macd_diff'] = DIFF
         df['macd_dea'] = DEA
@@ -256,11 +259,11 @@ class StockEigenvalueExtraction(object):
         """
         因为KDJ根据最高值做分母，如果某日暴涨，会影响到KDJ的准确度，故试用5日均线来做KDJ预测走势
         """
-        low_list = df['low'].rolling(9, min_periods=9).min()
-        low_list.fillna(value=df['low'].expanding().min(), inplace=True)
+        low_list = df[self.stock_csv_columns_dict['最低价']].rolling(9, min_periods=9).min()
+        low_list.fillna(value=df[self.stock_csv_columns_dict['最低价']].expanding().min(), inplace=True)
         high_list = df['ma5'].rolling(9, min_periods=9).max()
         high_list.fillna(value=df['ma5'].expanding().max(), inplace=True)
-        rsv = (df['close'] - low_list) / (high_list - low_list) * 100
+        rsv = (df[self.stock_csv_columns_dict['收盘价']] - low_list) / (high_list - low_list) * 100
 
         df['kdj_ma5_k'] = pd.DataFrame(rsv).ewm(com=2).mean()
         df['kdj_ma5_d'] = df['kdj_ma5_k'].ewm(com=2).mean()
@@ -268,7 +271,7 @@ class StockEigenvalueExtraction(object):
         return df
 
     def obv(self, df):
-        obv = ta.OBV(df.close, df.volume)
+        obv = ta.OBV(df[self.stock_csv_columns_dict['收盘价']], df[self.stock_csv_columns_dict['成交量']])
         df['obv'] = obv
         return df
 
@@ -278,15 +281,20 @@ if __name__ == '__main__':
     pd.set_option('display.max_colwidth', 300)
     pd.set_option('display.max_row', 1000)
 
+    import json
+    config_path = r'C:\Users\HLXD-129\PycharmProjects\Django_Stock\stock\stock_tools'
+    with open(config_path + '/config.json', 'r', encoding='utf8')as fp:
+        conf = json.load(fp)
     code = '000001'
-    df = pd.read_csv('../data/stock_d_csv/%s.csv' % (code), index_col=['date'])
-    SEE = StockEigenvalueExtraction()
+    df = pd.read_csv('./data/stock_d_csv/%s.csv' % (code), index_col=['date'])
+    SEE = StockEigenvalueExtraction(conf)
     df = df.sort_index()  # 要正序才能计算KDJ
     df = SEE.kdj(df)
+    df = SEE.ma(df, 5)
     df = SEE.ma5_kdj(df)
     df = SEE.obv(df)
     df = SEE.kdj_macd(df)
     df = SEE.p_kdj_macd(df, ktype='d')
     df = df.sort_index(ascending=False)  # 倒序
-    df = df[['close', 'kdj_d', 'kdj_macd_d', 'p_kdj_macd_d']]
+    df = df[['close_price', 'kdj_d', 'kdj_macd_d', 'p_kdj_macd_d']]
     print(df[:500])

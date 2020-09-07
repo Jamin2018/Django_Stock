@@ -587,7 +587,7 @@ class StockPyEchart(object):
 
 
         filepath = self.data_dir + '/pyechart/%s.html' % filename
-        grid_chart.render_embed(filepath)
+        grid_chart.render(filepath)
 
     def draw_charts(self, df, filename=None):
         if not filename:
@@ -1251,7 +1251,7 @@ if __name__ == '__main__':
     pd.set_option('display.max_colwidth', 300)
     pd.set_option('display.max_row', 1000)
 
-    config_path = 'C:\\Users\\HLXD-129\\PycharmProjects\\stock\\'
+    config_path = r'C:/Users/HLXD-129/PycharmProjects/Django_Stock/stock/stock_code'
     with open(config_path + '/config.json', 'r', encoding='utf8')as fp:
         conf = json.load(fp)
 
@@ -1259,7 +1259,7 @@ if __name__ == '__main__':
     # SPY = StockPyEchart_2(conf)
 
     code_list = [
-    "300157",
+    "000001",
     ]
 
     the_latest = False

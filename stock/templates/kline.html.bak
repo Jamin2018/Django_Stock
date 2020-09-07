@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>动态更新数据</title>
+    <script src="/static/jquery.min.js"></script>
+    <script type="text/javascript" src="/static/echarts.min.js"></script>
+</head>
+<body>
+<div id="kline" class="chart-container" style="width:1000px; height:800px;"></div>
+<script>
+    $(document).ready(function () {
+
+        // var chart = echarts.init(document.getElementById('kline'), 'white', {renderer: 'canvas'});
+
+        $.ajax({
+                type: "GET",
+                url: "api/v1/get_kline_chart",
+                dataType: 'json',
+                {#data: {result: result_json},#}
+                success: function (result) {
+                    // var opt = JSON.parse(result['options']);     // 变成json对象
+                    $("#kline").empty();
+                    $("#kline").append(result);
+                    // chart.setOption(opt);
+                }
+            });
+
+        setInterval(get_bar_chart_data, 1000);
+
+        function get_bar_chart_data() {
+            $.ajax({
+                type: "GET",
+                url: "api/v1/get_kline_chart",
+                dataType: 'json',
+                data: {result: result_json},
+                success: function (result) {
+                    // result = JSON.parse(result);     // 变成json对象
+                    // chart.setOption(result);
+
+                    $("#kline").empty();
+                    $("#kline").append(result);
+                }
+            });
+        }
+    });
+
+</script>
+</body>
+</html>

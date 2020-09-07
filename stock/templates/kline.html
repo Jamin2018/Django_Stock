@@ -7,38 +7,16 @@
     <script type="text/javascript" src="/static/echarts.min.js"></script>
 </head>
 <body>
-<div id="bar" style="width:1000px; height:600px;"></div>
+    <form action="kline" method="post">
+        {% csrf_token %}
+        <input type="text" name="vt_symbol">
+        <input type="submit" value="Submit">
+    </form>
+{% autoescape off %}
+    <div>{{ rlt }}</div>
+{% endautoescape %}
 <script>
-    $(document).ready(function () {
 
-        var chart = echarts.init(document.getElementById('bar'), 'gray', {renderer: 'canvas'});
-
-        $.ajax({
-                type: "GET",
-                url: "api/v1/get_kline_chart",
-                dataType: 'json',
-                {#data: {result: result_json},#}
-                success: function (result) {
-                    result = JSON.parse(result);     // 变成json对象
-                    chart.setOption(result);
-                }
-            });
-
-        setInterval(get_bar_chart_data, 10000);
-
-        function get_bar_chart_data() {
-            $.ajax({
-                type: "GET",
-                url: "barChart",
-                dataType: 'json',
-                {#data: {result: result_json},#}
-                success: function (result) {
-                    result = JSON.parse(result);     // 变成json对象
-                    chart.setOption(result);
-                }
-            });
-        }
-    });
 
 </script>
 </body>

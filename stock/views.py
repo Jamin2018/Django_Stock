@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.http import HttpResponse
+from django.http import JsonResponse
 import json
 import os
 # from .stock_code.core.StockApi import StockApi
@@ -9,14 +10,18 @@ from .stock_tools.PyEchart import StockPyEchart
 from stock.models import StockData
 import pandas as pd
 from django.db import connection
-from django.db.models import Avg,Min,Sum,Max
+from django.db.models import Avg, Min, Sum, Max
 import traceback  # 定位异常
 
 from pyecharts import options as opts
 from pyecharts.commons.utils import JsCode
 from pyecharts.charts import Kline, Line, Bar, Grid
-# Create your views here.
 
+# Create your views here.
+pd.set_option('display.width', 300)
+pd.set_option('display.max_columns', 300)
+pd.set_option('display.max_colwidth', 300)
+pd.set_option('display.max_row', 1000)
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 config_path = curPath
@@ -67,7 +72,7 @@ def v1_update(request):
             if len(d):
                 diff_df = df[~df['datetime'].isin(d['datetime'])]  # 查出数据库中没有的时间
             else:
-                diff_df = df   # 若数据库没数据，则diff_df的不同数据为所有df数据
+                diff_df = df  # 若数据库没数据，则diff_df的不同数据为所有df数据
             # 存入数据库
             diff_df.to_sql(StockData._meta.db_table, conn, if_exists='append', index=False)
             status = 200
@@ -83,31 +88,71 @@ def v1_update(request):
 
 
 def v1_get_kline_chart(request):
-    def kline_chart():
-        all_data = StockData.objects.values('symbol').annotate(Sum('volume'))
-        x = []
-        y = []
-        for i in all_data:
-            x.append(i['symbol'])
-            y.append(i['volume__sum'])
-        c = (
-            Bar(
-            )
-                .add_xaxis(x, )
-                .add_yaxis("id", y)
-                .set_global_opts(
-                title_opts=opts.TitleOpts(title="Bar-基本示例", subtitle="我是副标题"),
-                toolbox_opts=opts.ToolboxOpts(),
-                legend_opts=opts.LegendOpts(is_show=False),
-            )
-        )
-        return c
 
-    chart = kline_chart()
-    options = chart.dump_options_with_quotes()
-    data = json.dumps(options, ensure_ascii=False)
+    vt_symbol = request.GET.get('vt_symbol')
+    interval = request.GET.get('interval')
+    symbol, exchange = vt_symbol.split('.')
+
+    def kline_chart(symbol, exchange, interval):
+        old_stock_data = StockData.objects.filter(symbol=symbol, exchange=exchange, interval=interval).order_by(
+            'datetime')
+        df = pd.DataFrame(old_stock_data.values())
+        df = df[:50]
+        # 根据不同周期不同格式化
+        if interval == "D":
+            f = '%Y-%m-%d'
+        elif interval == "60":
+            f = '%Y-%m-%d %H:%M'
+            # df['datetime'] = df.index
+        df = df.set_index("datetime")
+        df.index = df.index.strftime(f)
+        SPY = StockPyEchart(conf)
+        chart = SPY.draw_charts(df)
+
+        return chart
+
+    chart = kline_chart(symbol, exchange, interval)
+    html = chart.render()
+    with open(html, 'r') as f:
+        h = f.read()
+    # options = chart.dump_options_with_quotes()  # 这个js代码无效，即没办法分配颜色，先用html的方法实现
+    data = json.dumps(h, ensure_ascii=False)
     return HttpResponse(data, content_type="application/json,charset=utf-8")
 
 
 def kline(request):
-    return render(request, 'kline.html')
+    ctx = {}
+    if request.POST:
+        vt_symbol = request.POST.get('vt_symbol')
+        interval = request.POST.get('interval')
+        symbol, exchange = vt_symbol.split('.')
+        interval = 'D'
+
+        def kline_chart(symbol, exchange, interval):
+            old_stock_data = StockData.objects.filter(symbol=symbol, exchange=exchange, interval=interval).order_by(
+                'datetime')
+            df = pd.DataFrame(old_stock_data.values())
+
+            # 根据不同周期不同格式化
+            if interval == "D":
+                f = '%Y-%m-%d'
+            elif interval == "60":
+                f = '%Y-%m-%d %H:%M'
+                # df['datetime'] = df.index
+            df = df.set_index("datetime")
+            df.index = df.index.strftime(f)
+            SPY = StockPyEchart(conf)
+            chart = SPY.draw_charts(df)
+            return chart
+
+        chart = kline_chart(symbol, exchange, interval)
+        html = chart.render()
+        with open(html, 'r') as f:
+            h = f.read()
+        # options = chart.dump_options_with_quotes()  # 这个js代码无效，即没办法分配颜色，先用html的方法实现
+        data = json.dumps(h, ensure_ascii=False)
+
+        if request.POST:
+            ctx['rlt'] = h
+    return render(request, "kline.html", ctx)
+
