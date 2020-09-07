@@ -21,7 +21,7 @@ from django.conf.urls import url,include
 
 urlpatterns = [
     path('', views.index),
-    path('testdate', views.testdata),
+    path('testdata', views.testdata),
     path('update', views.testdb),
     path('barChart', views.get_bar_chart),
 
