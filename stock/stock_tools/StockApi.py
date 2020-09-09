@@ -101,9 +101,9 @@ class StockApi(object):
                 df = self.get_hist_data(code, ktype=ktype)
 
             if df is not None and not df.empty:
-                stock_file_name = code + '.csv'
-                df.to_csv(self.data_dir + '/stock_%s_csv/' % ktype + stock_file_name)
-                print(self.data_dir + '/stock_%s_csv/' % ktype + stock_file_name, df_stock_code.index(old_code))
+                # stock_file_name = code + '.csv'
+                # df.to_csv(self.data_dir + '/stock_%s_csv/' % ktype + stock_file_name)
+                # print(self.data_dir + '/stock_%s_csv/' % ktype + stock_file_name, df_stock_code.index(old_code))
                 return df
             else:
                 print('没获取到：', code)

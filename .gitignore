@@ -2,6 +2,8 @@
 *.csv
 #*.txt
 /.idea/
+db.sqlite3
+render.html
 /stock/stock_code/pyechart/*.html
 !/stock/stock_code/data/other/*.csv
 !/stock/stock_code/data/code_list.csv

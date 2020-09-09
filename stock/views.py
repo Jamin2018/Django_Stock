@@ -156,3 +156,58 @@ def kline(request):
             ctx['rlt'] = h
     return render(request, "kline.html", ctx)
 
+
+def v1_all_update(request):
+    '''增量更新所有数据'''
+    s = int(request.GET.get('s'))
+    e = int(request.GET.get('e'))
+
+    status = "error"
+    msg = ""
+    result = {
+        "status": status,
+        "msg": msg,
+    }
+    connection.connect()
+    conn = connection.connection
+    SA = StockApi(conf)
+    all_df_stock_code = SA.pro.stock_basic(exchange='', list_status='L',
+                                         fields='ts_code,symbol,name,area,industry,list_date')
+    all_df_stock_code = list(all_df_stock_code['ts_code'])
+    all_df_stock_code = all_df_stock_code[s:e]
+    interval = 'D'
+    for df_stock_code in all_df_stock_code:
+        symbol, exchange = df_stock_code.split('.')
+        df = SA.update_stock_csv([df_stock_code], ktype=interval)
+        if df is not None and not df.empty:
+            df = df.sort_index()  # 要正序添加到数据库
+            df = df.dropna(axis=0, how='any', subset=["open_price"])  # 去掉空数据
+            # 2000-01-01 变成utc:2020-01-01 00:00:00+00:00
+            df['datetime'] = pd.to_datetime(df.index, utc=True, format="%Y-%m-%d")
+            df['exchange'] = exchange
+            df['interval'] = interval
+            df['open_interest'] = 0
+            df = df[['symbol', 'exchange', 'datetime', 'interval', 'volume',
+                     'open_interest', 'open_price', 'high_price', 'low_price', 'close_price']]
+
+            old_stock_data = StockData.objects.filter(symbol=symbol, exchange=exchange, interval=interval)
+            d = pd.DataFrame(old_stock_data.values())
+            if len(d):
+                diff_df = df[~df['datetime'].isin(d['datetime'])]  # 查出数据库中没有的时间
+            else:
+                diff_df = df  # 若数据库没数据，则diff_df的不同数据为所有df数据
+            # 存入数据库
+            diff_df.to_sql(StockData._meta.db_table, conn, if_exists='append', index=False)
+
+        # =========================================================================================================
+        task_rate = round(((all_df_stock_code.index(df_stock_code) + 1) / len(all_df_stock_code)) * 100, 2)
+        print(f'\r all update task: {task_rate}%', end='', flush=True)
+
+    status = 200
+    msg = f'新增{len(all_df_stock_code)}条数据'
+
+    result['status'] = status
+    result['msg'] = msg
+
+    data = json.dumps(result, ensure_ascii=False)
+    return HttpResponse(data, content_type="application/json,charset=utf-8")
